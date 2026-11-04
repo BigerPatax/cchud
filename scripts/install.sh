@@ -15,13 +15,13 @@ repo="BigerPatax/cchud"
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 case "$os" in
   darwin|linux) ;;
-  *) echo "cchud: 不支持的系统 $os。Windows 请用 scripts/install.ps1。" >&2; exit 1 ;;
+  *) echo "cchud: 不支持的系统 ${os}。Windows 请用 scripts/install.ps1。" >&2; exit 1 ;;
 esac
 arch="$(uname -m)"
 case "$arch" in
   x86_64|amd64) arch=amd64 ;;
   arm64|aarch64) arch=arm64 ;;
-  *) echo "cchud: 不支持的 CPU 架构 $arch。" >&2; exit 1 ;;
+  *) echo "cchud: 不支持的 CPU 架构 ${arch}。" >&2; exit 1 ;;
 esac
 
 ver="${CCHUD_VERSION:-latest}"
@@ -47,7 +47,7 @@ else
   actual="$(shasum -a 256 "$tmp/$asset" | awk '{print $1}')"
 fi
 if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
-  echo "cchud: SHA256 校验失败，未安装。期望 ${expected:-空}，实际 $actual。" >&2
+  echo "cchud: SHA256 校验失败，未安装。期望 ${expected:-空}，实际 ${actual}。" >&2
   exit 1
 fi
 echo "SHA256 校验通过"

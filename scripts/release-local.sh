@@ -46,7 +46,7 @@ echo "== 编译"
 VERSION="$tag" ./scripts/build.sh
 ./dist/cchud-"$(go env GOOS)"-"$(go env GOARCH)" version
 
-echo "== 创建 Release $tag（$repo，提交 ${sha:0:7}）"
+echo "== 创建 Release ${tag}（${repo}，提交 ${sha:0:7}）"
 notes="安装或升级（会自动修改 Claude Code 的 settings.json，修改前先备份）：
 
 macOS / Linux:
