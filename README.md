@@ -154,7 +154,10 @@ CCHUD_E2E=1 go test -run EndToEnd .    # 编译真实程序，测试常驻进程
 ./scripts/build.sh                     # 编译 6 个平台到 dist/，附 SHA256SUMS
 ```
 
-发布新版本：推送 `v` 开头的标签，例如 `git tag v0.1.1 && git push origin v0.1.1`。GitHub Actions 先在 Linux、macOS、Windows 上跑全部测试（包括端到端测试），通过后编译 6 个平台并发布 Release。推送到 `main` 和提交 PR 时只跑测试。
+发布新版本有两种方式，结果相同：
+
+1. 推送 `v` 开头的标签，例如 `git tag v0.1.1 && git push origin v0.1.1`。GitHub Actions 先在 Linux、macOS、Windows 上跑全部测试（包括端到端测试），通过后编译 6 个平台并发布 Release。推送到 `main` 和提交 PR 时只跑测试。
+2. Actions 不可用时，在本机运行 `./scripts/release-local.sh v0.1.1`。它要求工作区干净且 `main` 已推送，跑完全部测试后编译、创建 Release 并上传文件。
 
 ## 许可
 
