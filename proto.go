@@ -36,7 +36,7 @@ type response struct {
 }
 
 // 转发给常驻进程的环境变量。常驻进程被多个会话共用，不能用它自己启动时的环境。
-var forwardedEnv = []string{"CLAUDE_CONFIG_DIR", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX"}
+var forwardedEnv = []string{"CLAUDE_CONFIG_DIR", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CCHUD_CONFIG"}
 
 var errFrameTooLarge = errors.New("frame too large")
 

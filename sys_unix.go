@@ -9,3 +9,6 @@ func detachAttr() *syscall.SysProcAttr { return &syscall.SysProcAttr{Setsid: tru
 
 // hideWindowAttr 只在 Windows 上有作用。
 func hideWindowAttr() *syscall.SysProcAttr { return nil }
+
+// consoleUTF8 只在 Windows 上有作用。
+func consoleUTF8() func() { return func() {} }

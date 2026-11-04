@@ -125,12 +125,24 @@ func claudeConfigDir(env map[string]string) string {
 	return filepath.Join(home, ".claude")
 }
 
-// configPath 优先读 cchud 自己的配置，没有就沿用 claude-hud 的配置。
+// configPath 的顺序：CCHUD_CONFIG，~/.claude/cchud/config.json，claude-hud 的 config.json。
+// CCHUD_CONFIG 取自请求里的环境变量，因为常驻进程被多个会话共用。
 func configPath(env map[string]string) string {
-	if p := os.Getenv("CCHUD_CONFIG"); p != "" {
+	if p := strings.TrimSpace(env["CCHUD_CONFIG"]); p != "" {
 		return p
 	}
-	return filepath.Join(claudeConfigDir(env), "plugins", "claude-hud", "config.json")
+	dir := claudeConfigDir(env)
+	own := ownConfigPath(dir)
+	if _, err := os.Stat(own); err == nil {
+		return own
+	}
+	return hudConfigPath(dir)
+}
+
+func ownConfigPath(claudeDir string) string { return filepath.Join(claudeDir, "cchud", "config.json") }
+
+func hudConfigPath(claudeDir string) string {
+	return filepath.Join(claudeDir, "plugins", "claude-hud", "config.json")
 }
 
 // configCache 按文件修改时间缓存解析结果，文件没变就不重读。

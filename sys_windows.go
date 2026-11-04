@@ -23,7 +23,23 @@ func hideWindowAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
 }
 
-var procGetConsoleScreenBufferInfo = syscall.NewLazyDLL("kernel32.dll").NewProc("GetConsoleScreenBufferInfo")
+var (
+	kernel32                       = syscall.NewLazyDLL("kernel32.dll")
+	procGetConsoleScreenBufferInfo = kernel32.NewProc("GetConsoleScreenBufferInfo")
+	procGetConsoleOutputCP         = kernel32.NewProc("GetConsoleOutputCP")
+	procSetConsoleOutputCP         = kernel32.NewProc("SetConsoleOutputCP")
+)
+
+// consoleUTF8 把控制台输出临时切到 UTF-8，返回的函数恢复原设置。
+// 默认的中文代码页 936 会把程序输出的中文显示成乱码。
+func consoleUTF8() func() {
+	old, _, _ := procGetConsoleOutputCP.Call()
+	if old == 0 || old == 65001 {
+		return func() {}
+	}
+	procSetConsoleOutputCP.Call(65001)
+	return func() { procSetConsoleOutputCP.Call(old) }
+}
 
 type consoleCoord struct{ X, Y int16 }
 type consoleRect struct{ Left, Top, Right, Bottom int16 }

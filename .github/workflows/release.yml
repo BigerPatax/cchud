@@ -1,0 +1,49 @@
+name: release
+
+# 推送 v 开头的标签时：三个系统跑测试，全部通过后编译 6 个平台并发布 Release。
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: build
+        run: VERSION="$GITHUB_REF_NAME" ./scripts/build.sh
+      - name: smoke test linux binary
+        run: |
+          ./dist/cchud-linux-amd64 version
+          echo '{"model":{"display_name":"Opus 5.5"},"cwd":"/tmp","context_window":{"context_window_size":200000,"used_percentage":10}}' \
+            | ./dist/cchud-linux-amd64 render | grep -q 'Opus 5.5'
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<NOTES
+          安装或升级（会自动修改 Claude Code 的 settings.json，修改前先备份）：
+
+          macOS / Linux:
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/scripts/install.sh | bash
+          \`\`\`
+
+          Windows (PowerShell):
+          \`\`\`powershell
+          irm https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/scripts/install.ps1 | iex
+          \`\`\`
+
+          文件校验值见 SHA256SUMS。
+          NOTES
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

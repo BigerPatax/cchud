@@ -7,6 +7,7 @@
 //	cchud render   不经常驻进程，直接在本进程渲染一次。用于排查问题。
 //	cchud status   显示常驻进程的状态。
 //	cchud stop     让常驻进程退出。
+//	cchud setup    把 Claude Code 的状态栏指向本程序，没有配置时写入默认配置。
 package main
 
 import (
@@ -22,19 +23,31 @@ func main() {
 	if len(os.Args) > 1 {
 		cmd = os.Args[1]
 	}
-	switch cmd {
-	case "":
-		os.Exit(runClient())
-	case "daemon":
+	if cmd == "" || cmd == "daemon" {
+		// 状态栏刷新走这两条路径，输出不经过控制台，不需要切换编码。
+		if cmd == "" {
+			os.Exit(runClient())
+		}
 		os.Exit(runDaemon())
+	}
+	restore := consoleUTF8()
+	code := runCommand(cmd)
+	restore()
+	os.Exit(code)
+}
+
+func runCommand(cmd string) int {
+	switch cmd {
 	case "render":
-		os.Exit(runRenderOnce())
+		return runRenderOnce()
 	case "status", "stop":
-		os.Exit(runControl(cmd))
+		return runControl(cmd)
+	case "setup":
+		return runSetup()
 	case "version", "-v", "--version":
 		fmt.Println("cchud", buildVersion)
-	default:
-		fmt.Fprintln(os.Stderr, "用法: cchud [daemon|render|status|stop|version]")
-		os.Exit(2)
+		return 0
 	}
+	fmt.Fprintln(os.Stderr, "用法: cchud [setup|status|stop|render|daemon|version]")
+	return 2
 }
