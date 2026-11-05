@@ -49,6 +49,7 @@ type transcriptState struct {
 	data         TranscriptData
 	snap         *ctxSnapshot
 	lastUsed     time.Time
+	redrawDone   time.Time // 已经请求过重画的那次压缩的时间
 }
 
 var (
@@ -271,6 +272,27 @@ func (s *transcriptState) applyContextFallback(cw *ContextWindow, now time.Time)
 		s.snap = &ctxSnapshot{used: *cw.UsedPercentage, remaining: cw.RemainingPercentage,
 			usage: cw.CurrentUsage, size: cw.ContextWindowSize, savedAt: now}
 	}
+}
+
+const (
+	redrawDelay  = 3 * time.Second // Claude Code 压缩完会清屏重画，等它画完再补一次
+	redrawWindow = 2 * time.Minute // 更早的压缩不再处理，例如常驻进程重启后第一次读到的旧记录
+)
+
+// takeRedraw 在每次压缩完成 3 秒后返回一次 true。
+// Claude Code 压缩对话后清屏重画时，会漏掉内容没变的行（输入框的横线、上下文、令牌），
+// 这些行一直空着，直到内容变化或整屏重画。
+func (s *transcriptState) takeRedraw(now time.Time) bool {
+	c := s.data.LastCompactAt
+	if c.IsZero() || !c.After(s.redrawDone) {
+		return false
+	}
+	age := now.Sub(c)
+	if age < redrawDelay {
+		return false
+	}
+	s.redrawDone = c
+	return age <= redrawWindow
 }
 
 func isSuspiciousZero(cw *ContextWindow) bool {

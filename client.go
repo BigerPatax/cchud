@@ -32,12 +32,17 @@ func runClient() int {
 		return 0
 	}
 	req := request{Version: selfVersion(), Cols: detectWidth(), Env: collectEnv(), Input: input}
-	out, err := callDaemon(req)
+	resp, err := callDaemon(req)
 	if err != nil {
 		// 常驻进程不可用时在本进程渲染，保证这一次状态栏照常显示。
-		out = newEngine().Render(req, time.Now())
+		// 这里不重画：新建的 Engine 不记得哪次压缩已经处理过。
+		resp.Out, _ = newEngine().Render(req, time.Now())
+		resp.Redraw = false
 	}
-	_, _ = os.Stdout.WriteString(out)
+	_, _ = os.Stdout.WriteString(resp.Out)
+	if resp.Redraw {
+		requestRedraw()
+	}
 	return 0
 }
 
@@ -48,7 +53,8 @@ func runRenderOnce() int {
 		return 1
 	}
 	req := request{Version: selfVersion(), Cols: detectWidth(), Env: collectEnv(), Input: input}
-	_, _ = os.Stdout.WriteString(newEngine().Render(req, time.Now()))
+	out, _ := newEngine().Render(req, time.Now())
+	_, _ = os.Stdout.WriteString(out)
 	return 0
 }
 
@@ -126,22 +132,22 @@ func positiveInt(s string) int {
 	return v
 }
 
-func callDaemon(req request) (string, error) {
+func callDaemon(req request) (response, error) {
 	resp, err := roundTrip(req, requestTimeout)
 	if err == nil {
 		switch resp.Code {
 		case codeOK:
-			return resp.Out, nil
+			return resp, nil
 		case codeVersionMismatch:
 			// 旧常驻进程已关闭监听并退出，拉起新的，这一次在本进程渲染。
 			spawnDaemon()
-			return "", errors.New("daemon restarting")
+			return response{}, errors.New("daemon restarting")
 		default:
-			return "", errors.New(resp.Out)
+			return response{}, errors.New(resp.Out)
 		}
 	}
 	if !isDialError(err) {
-		return "", err
+		return response{}, err
 	}
 	spawnDaemon()
 	deadline := time.Now().Add(spawnWait)
@@ -149,13 +155,13 @@ func callDaemon(req request) (string, error) {
 		time.Sleep(25 * time.Millisecond)
 		resp, err = roundTrip(req, requestTimeout)
 		if err == nil && resp.Code == codeOK {
-			return resp.Out, nil
+			return resp, nil
 		}
 		if err != nil && !isDialError(err) {
-			return "", err
+			return response{}, err
 		}
 	}
-	return "", errors.New("daemon unavailable")
+	return response{}, errors.New("daemon unavailable")
 }
 
 func roundTrip(req request, timeout time.Duration) (response, error) {

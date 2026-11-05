@@ -29,11 +29,11 @@ func newEngine() *Engine {
 	return &Engine{transcripts: map[string]*transcriptState{}, git: newGitCache(), cfg: newConfigCache()}
 }
 
-// Render 处理一次状态栏请求，返回要输出的文本。
-func (e *Engine) Render(req request, now time.Time) string {
+// Render 处理一次状态栏请求，返回要输出的文本，以及是否该让 Claude Code 整屏重画（见 takeRedraw）。
+func (e *Engine) Render(req request, now time.Time) (out string, redraw bool) {
 	var in StdinData
 	if err := json.Unmarshal(req.Input, &in); err != nil {
-		return "[cchud] 无法解析状态栏输入\n"
+		return "[cchud] 无法解析状态栏输入\n", false
 	}
 	cfg := e.cfg.load(configPath(req.Env), now)
 
@@ -47,6 +47,7 @@ func (e *Engine) Render(req request, now time.Time) string {
 		if in.ContextWindow != nil {
 			st.applyContextFallback(in.ContextWindow, now)
 		}
+		redraw = st.takeRedraw(now) && cfg.RedrawAfterCompact
 		tr = st.data
 		st.mu.Unlock()
 	}
@@ -68,7 +69,7 @@ func (e *Engine) Render(req request, now time.Time) string {
 
 	f := &frame{in: &in, tr: tr, cfg: cfg, git: git, version: version, width: width, now: now,
 		env: req.Env, t: newTranslator(cfg.Language), p: palette{cfg.Colors}}
-	return render(f)
+	return render(f), redraw
 }
 
 func (e *Engine) transcript(path string, now time.Time) *transcriptState {

@@ -17,10 +17,12 @@ type Config struct {
 	PathLevels    int
 	MaxWidth      int // 0 表示没设
 	ForceMaxWidth bool
-	ElementOrder  []string
-	Git           GitConfig
-	Display       DisplayConfig
-	Colors        map[string]any
+	// RedrawAfterCompact 为 true 时，压缩对话后让 Claude Code 整屏重画一次，见 requestRedraw。
+	RedrawAfterCompact bool
+	ElementOrder       []string
+	Git                GitConfig
+	Display            DisplayConfig
+	Colors             map[string]any
 }
 
 type GitConfig struct {
@@ -81,10 +83,11 @@ var knownElements = func() map[string]bool {
 
 func defaultConfig() *Config {
 	return &Config{
-		Language:     "en",
-		LineLayout:   "expanded",
-		PathLevels:   1,
-		ElementOrder: append([]string(nil), defaultElementOrder...),
+		Language:           "en",
+		LineLayout:         "expanded",
+		PathLevels:         1,
+		RedrawAfterCompact: true,
+		ElementOrder:       append([]string(nil), defaultElementOrder...),
 		Git: GitConfig{
 			Enabled: true, ShowDirty: true, BranchOverflow: "truncate",
 		},
@@ -201,6 +204,7 @@ func applyUserConfig(cfg *Config, b []byte) {
 		cfg.MaxWidth = v
 	}
 	setBool(root, "forceMaxWidth", &cfg.ForceMaxWidth)
+	setBool(root, "redrawAfterCompact", &cfg.RedrawAfterCompact)
 	if raw, ok := root["elementOrder"]; ok {
 		var order []string
 		if json.Unmarshal(raw, &order) == nil {

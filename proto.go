@@ -31,8 +31,9 @@ type request struct {
 }
 
 type response struct {
-	Code int    `json:"code"`
-	Out  string `json:"out"`
+	Code   int    `json:"code"`
+	Out    string `json:"out"`
+	Redraw bool   `json:"redraw,omitempty"` // 客户端输出后让 Claude Code 整屏重画一次
 }
 
 // 转发给常驻进程的环境变量。常驻进程被多个会话共用，不能用它自己启动时的环境。

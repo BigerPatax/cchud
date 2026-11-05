@@ -120,8 +120,8 @@ func (d *daemon) handle(conn net.Conn) {
 		_ = writeFrame(conn, response{Code: codeVersionMismatch})
 		return
 	}
-	out := d.engine.Render(req, time.Now())
-	_ = writeFrame(conn, response{Code: codeOK, Out: out})
+	out, redraw := d.engine.Render(req, time.Now())
+	_ = writeFrame(conn, response{Code: codeOK, Out: out, Redraw: redraw})
 }
 
 // shutdown 关闭监听。unlink 为 false 时不删 socket 文件，用于文件已被别的常驻进程接管的情况。

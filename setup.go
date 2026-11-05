@@ -103,7 +103,7 @@ func runSetup() int {
 		"cost":           map[string]any{"total_cost_usd": 1.23},
 		"context_window": map[string]any{"context_window_size": 200000, "used_percentage": 25, "current_usage": map[string]any{"input_tokens": 50000}},
 	})
-	out := newEngine().Render(request{Cols: detectWidth(), Env: env, Input: sample}, time.Now())
+	out, _ := newEngine().Render(request{Cols: detectWidth(), Env: env, Input: sample}, time.Now())
 	fmt.Println("自测输出:")
 	fmt.Print(out)
 	fmt.Println("完成。新开或继续使用 Claude Code 会话，状态栏会在下一次刷新时生效。")
