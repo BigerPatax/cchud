@@ -106,7 +106,7 @@ Claude Code 状态栏程序，用 Go 写成。显示内容和样式移植自 [cl
 | `display.showSessionTokens` | 累计令牌行 |
 | `gitStatus.showDirty` / `showAheadBehind` / `pushWarningThreshold` | 改动标记、领先落后数、领先多少提交时变色 |
 | `colors.*` | 颜色名、0 到 255 色号或 `#rrggbb` |
-| `redrawAfterCompact` | 默认 `true`。压缩对话 3 秒后让 Claude Code 整屏重画一次，设为 `false` 关闭，见“工作方式”第 6 条 |
+| `redrawAfterCompact` | 默认 `true`。压缩对话或插入 recap 3 秒后让 Claude Code 整屏重画一次，设为 `false` 关闭，见“工作方式”第 6 条 |
 
 尚未移植的 claude-hud 显示项：内存、环境（配置数量和 output style）、工具、技能、MCP、子代理、待办、会话时间、输出速度、紧凑布局（`lineLayout: compact` 按展开布局显示）。
 
@@ -137,7 +137,7 @@ Claude Code 状态栏程序，用 Go 写成。显示内容和样式移植自 [cl
 3. 会话记录增量读取：记住每个文件读到的位置，之后只读新追加的部分。
 4. git 状态用一条 `git status --porcelain=v2 --branch` 取得，按目录缓存 2 秒，同目录的会话共用。
 5. 程序文件被替换后，客户端和常驻进程的版本标识对不上，旧常驻进程自动退出。
-6. Claude Code 压缩对话后清屏重画时，会漏掉内容没变的行：输入框上下的横线、上下文、令牌这几行一直空着，直到内容变化。cchud 在会话记录里读到新的压缩记录 3 秒后，给 Claude Code 发一次 SIGCONT。Claude Code 收到后按“从 Ctrl+Z 挂起恢复”处理，把整个界面重新写一遍；进程没被挂起时这个信号不影响运行。信号只发给处在终端前台的那个 Claude Code 进程，被挂起的不发。Windows 上没有这个信号，不做。
+6. 会话空闲时 Claude Code 压缩对话，或者插入 recap（用户离开一段时间后显示的“※ recap:”会话摘要），之后会漏画内容没变的行：输入框上下的横线、上下文、令牌这几行一直空着，直到内容变化。cchud 在会话记录里读到新的压缩记录或 recap 记录 3 秒后，给 Claude Code 发一次 SIGCONT。Claude Code 收到后按“从 Ctrl+Z 挂起恢复”处理，把整个界面重新写一遍；进程没被挂起时这个信号不影响运行。信号只发给处在终端前台的那个 Claude Code 进程，被挂起的不发。Windows 上没有这个信号，不做。
 
 作者机器上的实测（Apple M3 Pro，macOS 26.5，4 个会话同时开着，和 claude-hud 0.1.1 对比）：
 

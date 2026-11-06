@@ -27,7 +27,8 @@ type TranscriptData struct {
 	LastAssistantAt time.Time
 	Tokens          SessionTokens
 	LastCompactAt   time.Time
-	LastCompactPost int64 // -1 表示没有
+	LastCompactPost int64     // -1 表示没有
+	RedrawEventAt   time.Time // 最近一次压缩或 recap 的时间，见 takeRedraw
 }
 
 // ctxSnapshot 是最近一次正常的上下文数据。Claude Code 偶尔会发全 0 的上下文，这时用它补上。
@@ -49,12 +50,13 @@ type transcriptState struct {
 	data         TranscriptData
 	snap         *ctxSnapshot
 	lastUsed     time.Time
-	redrawDone   time.Time // 已经请求过重画的那次压缩的时间
+	redrawDone   time.Time // 已经请求过重画的那次压缩或 recap 的时间
 }
 
 var (
 	markAssistant = []byte(`"type":"assistant"`)
 	markCompact   = []byte(`"compact_boundary"`)
+	markAway      = []byte(`"away_summary"`)
 	markTimestamp = []byte(`"timestamp"`)
 )
 
@@ -143,8 +145,8 @@ func (s *transcriptState) processLine(line []byte) {
 		s.lastUsageKey = ""
 		return
 	}
-	// 只有可能是 assistant 记录或压缩边界的行才完整解析，其余行（大部分是工具输出）跳过。
-	if !bytes.Contains(line, markAssistant) && !bytes.Contains(line, markCompact) {
+	// 只有可能是 assistant 记录、压缩边界或 recap 的行才完整解析，其余行（大部分是工具输出）跳过。
+	if !bytes.Contains(line, markAssistant) && !bytes.Contains(line, markCompact) && !bytes.Contains(line, markAway) {
 		s.lastUsageKey = ""
 		if s.data.SessionStart.IsZero() && bytes.Contains(line, markTimestamp) {
 			var e struct {
@@ -201,6 +203,12 @@ func (s *transcriptState) processLine(line []byte) {
 				}
 			}
 		}
+	}
+
+	// recap 是用户离开一段时间后 Claude Code 插入的会话摘要，界面上显示为“※ recap:”。
+	if e.Type == "system" && (e.Subtype == "compact_boundary" || e.Subtype == "away_summary") &&
+		tsOK && ts.After(s.data.RedrawEventAt) {
+		s.data.RedrawEventAt = ts
 	}
 
 	if tsOK {
@@ -275,15 +283,15 @@ func (s *transcriptState) applyContextFallback(cw *ContextWindow, now time.Time)
 }
 
 const (
-	redrawDelay  = 3 * time.Second // Claude Code 压缩完会清屏重画，等它画完再补一次
-	redrawWindow = 2 * time.Minute // 更早的压缩不再处理，例如常驻进程重启后第一次读到的旧记录
+	redrawDelay  = 3 * time.Second // 等 Claude Code 把这次改动画完再补一次
+	redrawWindow = 2 * time.Minute // 更早的记录不再处理，例如常驻进程重启后第一次读到的旧记录
 )
 
-// takeRedraw 在每次压缩完成 3 秒后返回一次 true。
-// Claude Code 压缩对话后清屏重画时，会漏掉内容没变的行（输入框的横线、上下文、令牌），
+// takeRedraw 在每次压缩或 recap 写入 3 秒后返回一次 true。
+// 会话空闲时 Claude Code 插入这两种内容后，会漏画内容没变的行（输入框的横线、上下文、令牌），
 // 这些行一直空着，直到内容变化或整屏重画。
 func (s *transcriptState) takeRedraw(now time.Time) bool {
-	c := s.data.LastCompactAt
+	c := s.data.RedrawEventAt
 	if c.IsZero() || !c.After(s.redrawDone) {
 		return false
 	}

@@ -17,7 +17,7 @@ type Config struct {
 	PathLevels    int
 	MaxWidth      int // 0 表示没设
 	ForceMaxWidth bool
-	// RedrawAfterCompact 为 true 时，压缩对话后让 Claude Code 整屏重画一次，见 requestRedraw。
+	// RedrawAfterCompact 为 true 时，压缩对话或插入 recap 后让 Claude Code 整屏重画一次，见 requestRedraw。
 	RedrawAfterCompact bool
 	ElementOrder       []string
 	Git                GitConfig

@@ -12,7 +12,7 @@ import (
 func TestTakeRedraw(t *testing.T) {
 	s := newTranscriptState("")
 	c := time.Date(2026, 11, 5, 5, 2, 35, 0, time.UTC)
-	s.data.LastCompactAt = c
+	s.data.RedrawEventAt = c
 	steps := []struct {
 		at   time.Duration
 		want bool
@@ -27,7 +27,7 @@ func TestTakeRedraw(t *testing.T) {
 		}
 	}
 	c2 := c.Add(time.Hour)
-	s.data.LastCompactAt = c2
+	s.data.RedrawEventAt = c2
 	if !s.takeRedraw(c2.Add(5 * time.Second)) {
 		t.Fatal("second compaction not redrawn")
 	}
@@ -35,13 +35,13 @@ func TestTakeRedraw(t *testing.T) {
 	// 常驻进程重启后读到的旧压缩记录不触发重画，之后也不会再触发。
 	old := newTranscriptState("")
 	now := c.Add(10 * time.Minute)
-	old.data.LastCompactAt = c
+	old.data.RedrawEventAt = c
 	if old.takeRedraw(now) || old.takeRedraw(now.Add(time.Second)) {
 		t.Fatal("old compaction triggered a redraw")
 	}
 }
 
-// 会话记录里新追加一条压缩记录，3 秒后的那次刷新带上重画标记，只带一次。
+// 会话记录里新追加一条压缩记录或 recap，3 秒后的那次刷新带上重画标记，只带一次。
 func TestRenderRedrawAfterCompact(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
@@ -63,6 +63,22 @@ func TestRenderRedrawAfterCompact(t *testing.T) {
 	}
 	if _, redraw := e.Render(req, now.Add(time.Second)); redraw {
 		t.Fatal("redraw requested twice for one compaction")
+	}
+
+	// 其他类型的记录里有值为 away_summary 的字段，不算 recap。
+	later := now.Add(time.Minute)
+	ts := func(at time.Time) string { return at.Add(-4 * time.Second).UTC().Format(time.RFC3339Nano) }
+	appendFile(t, tp, fmt.Sprintf(`{"type":"attachment","timestamp":%q,"attachment":{"source":"away_summary"}}`+"\n", ts(later)))
+	if _, redraw := e.Render(req, later); redraw {
+		t.Fatal("redraw for a non-system line mentioning away_summary")
+	}
+	// 用户离开后插入的 recap 同样触发一次重画。
+	appendFile(t, tp, fmt.Sprintf(`{"type":"system","subtype":"away_summary","content":"recap","timestamp":%q}`+"\n", ts(later)))
+	if _, redraw := e.Render(req, later); !redraw {
+		t.Fatal("no redraw after recap")
+	}
+	if _, redraw := e.Render(req, later.Add(time.Second)); redraw {
+		t.Fatal("redraw requested twice for one recap")
 	}
 
 	// 配置里关掉以后不重画。
